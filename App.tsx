@@ -16,14 +16,16 @@ const App: React.FC = () => {
       <HashRouter>
         <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
           <Sidebar />
-          <main className="flex-1 ml-64 p-0 h-full overflow-hidden flex flex-col">
+          {/* MODIFICADO: Se cambió overflow-hidden por overflow-y-auto para permitir el scroll */}
+          <main className="flex-1 ml-64 p-0 h-full overflow-y-auto flex flex-col">
             <Routes>
-              <Route path="/" element={<div className="h-full p-6"><Generator /></div>} />
-              <Route path="/upload" element={<div className="h-full p-6"><UploadPage /></div>} />
-              <Route path="/assistant" element={<div className="h-full p-6"><AIAssistant /></div>} />
-              <Route path="/analysis" element={<div className="h-full p-6"><AIAnalysis /></div>} />
-              <Route path="/settings" element={<div className="h-full p-6"><Settings /></div>} />
-              <Route path="/game" element={<GameMode />} /> {/* Fullscreen style for game */}
+              {/* MODIFICADO: Se quitó h-full de los wrappers para que el contenido pueda crecer */}
+              <Route path="/" element={<div className="p-6"><Generator /></div>} />
+              <Route path="/upload" element={<div className="p-6"><UploadPage /></div>} />
+              <Route path="/assistant" element={<div className="p-6"><AIAssistant /></div>} />
+              <Route path="/analysis" element={<div className="p-6"><AIAnalysis /></div>} />
+              <Route path="/settings" element={<div className="p-6"><Settings /></div>} />
+              <Route path="/game" element={<GameMode />} /> {/* Se mantiene sin cambios por su estilo de pantalla completa */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>

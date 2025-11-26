@@ -5,14 +5,14 @@ import { Exercise, Difficulty } from '../types';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { BrainCircuit, ArrowLeft, Sparkles, AlertCircle, PlayCircle } from 'lucide-react';
 import { generateAIResponse } from '../services/geminiService';
-import { MOCK_DATABASE } from '../constants';
 import { useExercises } from '../context/ExerciseContext';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 const AIAnalysis: React.FC = () => {
   const navigate = useNavigate();
-  const { getSelectedExercises, addExercise, toggleSelection } = useExercises();
+  // MODIFICADO: Se obtiene la lista completa de ejercicios (`allExercises`) del contexto y se quita `addExercise` que no se usaba.
+  const { getSelectedExercises, toggleSelection, exercises: allExercises } = useExercises();
   const selectedExercises = getSelectedExercises();
   
   const [exercises, setExercises] = useState<Exercise[]>(selectedExercises);
@@ -21,9 +21,9 @@ const AIAnalysis: React.FC = () => {
 
   useEffect(() => {
     setExercises(selectedExercises);
-  }, [selectedExercises.length]); // Re-sync if selection changes elsewhere (unlikely but good practice)
+  }, [selectedExercises.length]);
 
-  // --- Stats Calculation ---
+  // --- Stats Calculation (sin cambios) ---
   const difficultyData = [
     { name: 'Básica', value: exercises.filter(e => e.difficulty === Difficulty.BAS).length },
     { name: 'Media', value: exercises.filter(e => e.difficulty === Difficulty.MED).length },
@@ -38,7 +38,7 @@ const AIAnalysis: React.FC = () => {
 
   const skillData = Object.entries(skillCounts).map(([name, value]) => ({ name, value }));
 
-  // --- AI Analysis ---
+  // --- AI Analysis (sin cambios) ---
   useEffect(() => {
     if (exercises.length > 0 && !aiFeedback) {
       setAnalyzing(true);
@@ -61,12 +61,18 @@ const AIAnalysis: React.FC = () => {
     }
   }, [exercises.length]);
 
+  // --- MODIFICADO: `loadDemoData` ahora usa los ejercicios del contexto ---
   const loadDemoData = () => {
-    // Instead of local setExercises, we actually select them in the global context
-    // so if the user goes back to Generator, they are selected there too.
-    const demoEx = MOCK_DATABASE.slice(0, 8);
-    demoEx.forEach(ex => toggleSelection(ex.id));
-    // The useEffect above will catch the context update
+    // Se usan los ejercicios cargados en el contexto (que son los de demo en el primer arranque).
+    // Se seleccionan hasta 8 ejercicios que no estén ya seleccionados.
+    const currentSelectionIds = selectedExercises.map(ex => ex.id);
+    const demoExercisesToSelect = allExercises.slice(0, 8);
+
+    demoExercisesToSelect.forEach(ex => {
+      if (!currentSelectionIds.includes(ex.id)) {
+        toggleSelection(ex.id);
+      }
+    });
   };
 
   if (exercises.length === 0) {
@@ -92,7 +98,7 @@ const AIAnalysis: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col bg-slate-50 overflow-y-auto">
-      {/* Header */}
+      {/* Header (sin cambios) */}
       <div className="bg-white border-b border-slate-200 p-4 sticky top-0 z-10 flex items-center gap-4 shadow-sm">
         <button onClick={() => navigate('/')} className="p-2 hover:bg-slate-100 rounded-full text-slate-500">
           <ArrowLeft size={20} />
@@ -108,7 +114,7 @@ const AIAnalysis: React.FC = () => {
 
       <div className="p-6 max-w-6xl mx-auto w-full space-y-6">
         
-        {/* Charts Row */}
+        {/* Charts Row (sin cambios) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Difficulty Chart */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
@@ -153,7 +159,7 @@ const AIAnalysis: React.FC = () => {
           </div>
         </div>
 
-        {/* AI Insights */}
+        {/* AI Insights (sin cambios) */}
         <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
              <Sparkles className="text-indigo-600" size={20} />

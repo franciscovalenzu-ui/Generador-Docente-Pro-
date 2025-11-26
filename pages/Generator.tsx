@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -54,14 +53,16 @@ const Generator: React.FC = () => {
     };
   }, [previewBlobUrl]);
 
+  // --- MEJORA 1: Configuración de renderizado DOCX ajustada ---
   useEffect(() => {
     if (previewExercise?.fileType === 'docx' && previewExercise.fileContent && docxContainerRef.current) {
       docxContainerRef.current.innerHTML = '';
       docxPreview.renderAsync(previewExercise.fileContent, docxContainerRef.current, undefined, {
-        inWrapper: false,
+        className: "docx-viewer",
+        inWrapper: false, 
         ignoreWidth: false, 
         ignoreHeight: false,
-        className: "docx-viewer"
+        padding: "20px" // Añadido padding para mejor estética
       }).catch(err => console.error("Error rendering DOCX", err));
     }
   }, [previewExercise]);
@@ -149,7 +150,6 @@ const Generator: React.FC = () => {
     return bytes;
   };
 
-  // Native Download Function (No FileSaver dependency)
   const nativeDownload = (blob: Blob, filename: string) => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -167,7 +167,7 @@ const Generator: React.FC = () => {
     
     try {
       const children = [];
-      const headers = {};
+      const headers: any = {};
 
       if (settings.logoBase64 || settings.schoolName) {
           const headerChildren = [];
@@ -193,7 +193,6 @@ const Generator: React.FC = () => {
                   })
               );
           }
-          // @ts-ignore
           if (headerChildren.length > 0) headers.default = new Header({ children: headerChildren });
       }
 
@@ -309,7 +308,6 @@ const Generator: React.FC = () => {
       const blob = await Packer.toBlob(doc);
       const filename = `${testTitle.replace(/\s+/g, '_')}_${type === 'student' ? 'Estudiante' : 'Pauta'}.docx`;
       
-      // Use Native Download instead of file-saver
       nativeDownload(blob, filename);
 
     } catch (error) {
@@ -348,17 +346,20 @@ const Generator: React.FC = () => {
         );
     }
 
+    // --- MEJORA 2: Visor de DOCX con scroll contenido ---
     if (previewExercise.fileType === 'docx' && previewExercise.fileContent) {
         return (
-            <div className="w-full h-full overflow-hidden flex flex-col bg-slate-200">
+            <div className="w-full h-full flex flex-col bg-slate-200 overflow-hidden relative">
+                 {/* Barra docente flotante */}
                  {showTeacherView && (
-                    <div className="shrink-0 bg-indigo-50 border-b border-indigo-100 p-2 text-xs flex justify-between px-4 text-indigo-900">
+                    <div className="shrink-0 bg-indigo-50 border-b border-indigo-100 p-2 text-xs flex justify-between px-4 text-indigo-900 z-10 shadow-sm">
                         <span><strong>Respuesta:</strong> {previewExercise.parsedContent?.answerKey}</span>
                         <span><strong>Habilidad:</strong> {previewExercise.parsedContent?.skill}</span>
                     </div>
                  )}
-                 <div className="flex-1 overflow-auto p-4 flex justify-center">
-                    <div ref={docxContainerRef} className="bg-white shadow-lg min-h-[500px] w-full max-w-[800px]" />
+                 {/* Contenedor con scroll independiente */}
+                 <div className="flex-1 overflow-auto w-full min-h-0 p-4">
+                    <div ref={docxContainerRef} className="bg-white shadow-lg mx-auto max-w-full origin-top" />
                  </div>
             </div>
         )
@@ -366,17 +367,17 @@ const Generator: React.FC = () => {
 
     return (
       <div className="p-6 font-serif text-slate-800 space-y-4 overflow-auto h-full bg-white">
-         <div className="whitespace-pre-wrap">
+          <div className="whitespace-pre-wrap">
             {showTeacherView ? previewExercise.content : (previewExercise.parsedContent?.studentContent || previewExercise.content)}
-         </div>
-         {showTeacherView && previewExercise.parsedContent?.hasMetadata && (
-           <div className="mt-4 p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-sm">
+          </div>
+          {showTeacherView && previewExercise.parsedContent?.hasMetadata && (
+            <div className="mt-4 p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-sm">
               <div className="grid grid-cols-2 gap-4">
                 <div><span className="text-indigo-500 font-semibold">Respuesta: </span>{previewExercise.parsedContent.answerKey}</div>
                 <div><span className="text-indigo-500 font-semibold">Habilidad: </span>{previewExercise.parsedContent.skill}</div>
               </div>
-           </div>
-         )}
+            </div>
+          )}
       </div>
     );
   };
@@ -497,13 +498,13 @@ const Generator: React.FC = () => {
                 <label className="text-xs text-slate-500 font-medium">Tipo Ejercicio</label>
                 <div className="flex gap-2 mt-1">
                    {['', ExerciseType.MULTIPLE_CHOICE, ExerciseType.DEVELOPMENT].map((type, idx) => (
-                     <button 
-                       key={idx}
-                       onClick={() => setFilters({...filters, type: type})}
-                       className={`px-3 py-1 text-xs rounded-full border ${filters.type === type ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-600'}`}
-                     >
-                       {type === '' ? 'Todos' : type === ExerciseType.MULTIPLE_CHOICE ? 'Sel. Única' : 'Desarrollo'}
-                     </button>
+                      <button 
+                        key={idx}
+                        onClick={() => setFilters({...filters, type: type})}
+                        className={`px-3 py-1 text-xs rounded-full border ${filters.type === type ? 'bg-indigo-100 border-indigo-300 text-indigo-700' : 'bg-white border-slate-200 text-slate-600'}`}
+                      >
+                        {type === '' ? 'Todos' : type === ExerciseType.MULTIPLE_CHOICE ? 'Sel. Única' : 'Desarrollo'}
+                      </button>
                    ))}
                 </div>
               </div>

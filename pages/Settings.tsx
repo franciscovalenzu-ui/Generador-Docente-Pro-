@@ -67,26 +67,6 @@ const Settings: React.FC = () => {
           </div>
         </section>
 
-        {/* API Keys */}
-        <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-700 mb-4 border-b pb-2">Integraciones IA</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Google Gemini API Key</label>
-              <div className="flex gap-2">
-                <input 
-                  type="password" 
-                  value="AIzaSy........................" 
-                  readOnly
-                  className="flex-1 border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 text-slate-500" 
-                />
-                <button className="px-4 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50" disabled>Configurado en Env</button>
-              </div>
-              <p className="text-xs text-slate-400 mt-1">Usada para el Asistente y el Análisis de Pruebas.</p>
-            </div>
-          </div>
-        </section>
-
         <div className="flex justify-end">
           <button 
             onClick={handleSave}

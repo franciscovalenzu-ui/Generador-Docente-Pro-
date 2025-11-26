@@ -84,17 +84,12 @@ const UploadPage: React.FC = () => {
         let htmlContent = "";
 
         if (file.name.endsWith('.docx')) {
-            // Extract Raw Text for parsing/searching
             const textResult = await mammoth.extractRawText({ arrayBuffer });
             contentText = textResult.value;
-
-            // Extract HTML for generation (images)
             const options = {
                 convertImage: mammoth.images.imgElement(function(image) {
                     return image.read("base64").then(function(imageBuffer) {
-                        return {
-                            src: "data:" + image.contentType + ";base64," + imageBuffer
-                        };
+                        return { src: "data:" + image.contentType + ";base64," + imageBuffer };
                     });
                 })
             };
@@ -106,12 +101,24 @@ const UploadPage: React.FC = () => {
 
         const parsedData = parseExerciseContent(contentText);
 
+        // --- Detección de dificultad por nombre de archivo ---
+        let detectedDifficulty = batchData.difficulty; // Por defecto usa la del formulario
+        const fileNameLower = file.name.toLowerCase();
+        
+        if (fileNameLower.startsWith('[1bas]')) {
+            detectedDifficulty = Difficulty.BAS;
+        } else if (fileNameLower.startsWith('[2med]')) {
+            detectedDifficulty = Difficulty.MED;
+        } else if (fileNameLower.startsWith('[3avz]')) {
+            detectedDifficulty = Difficulty.AVZ;
+        }
+
         const newExercise: Exercise = {
           id: `upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           filename: file.name,
           content: contentText,
           htmlContent: htmlContent,
-          fileContent: arrayBuffer, // Store raw buffer for docx-preview
+          fileContent: arrayBuffer,
           originalFile: file,
           fileType: file.name.endsWith('.pdf') ? 'pdf' : 'docx',
           parsedContent: parsedData,
@@ -120,7 +127,7 @@ const UploadPage: React.FC = () => {
           oa: batchData.oa,
           indicator: batchData.indicator,
           type: batchData.type,
-          difficulty: batchData.difficulty,
+          difficulty: detectedDifficulty, // Se usa la dificultad detectada
           tags: ["lote"],
         };
 

@@ -1,9 +1,9 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Exercise, GlobalSettings } from '../types';
-import { MANUAL_DATABASE } from '../constants';
+import { loadDemoExercises } from '../services/demoLoader';
 
-// --- INDEXED DB CONFIG ---
+// --- INDEXED DB CONFIG (sin cambios) ---
 const DB_NAME = 'GeneradorDocenteDB';
 const STORE_NAME = 'exercises';
 const DB_VERSION = 1;
@@ -22,6 +22,7 @@ const openDB = (): Promise<IDBDatabase> => {
   });
 };
 
+// --- Tipos del Contexto (restoreDemoData ahora es async) ---
 interface ExerciseContextType {
   exercises: Exercise[];
   selectedIds: string[];
@@ -33,8 +34,8 @@ interface ExerciseContextType {
   clearSelection: () => void;
   getSelectedExercises: () => Exercise[];
   updateSettings: (newSettings: Partial<GlobalSettings>) => void;
-  deleteAllExercises: () => void;
-  restoreDemoData: () => void;
+  deleteAllExercises: () => Promise<void>;
+  restoreDemoData: () => Promise<void>; // <-- Modificado
   isLoadingDB: boolean;
 }
 
@@ -50,72 +51,92 @@ export const ExerciseProvider: React.FC<{ children: ReactNode }> = ({ children }
     includeSpecTable: true
   });
 
-  // Load from IndexedDB on mount
+  // --- MODIFICADO: Carga de datos desde IndexedDB o Banco de Demo ---
   useEffect(() => {
     const loadData = async () => {
+      setIsLoadingDB(true);
       try {
         const db = await openDB();
         const transaction = db.transaction(STORE_NAME, 'readonly');
         const store = transaction.objectStore(STORE_NAME);
         const request = store.getAll();
         
-        request.onsuccess = () => {
+        request.onsuccess = async () => {
           const savedExercises = request.result as Exercise[];
-          // Merge manual database with saved exercises (prioritizing saved data)
-          if (savedExercises.length > 0) {
+          
+          if (savedExercises && savedExercises.length > 0) {
+            // Si el usuario ya tiene datos, los cargamos
             setExercises(savedExercises);
+            console.log("Ejercicios cargados desde la base de datos local (IndexedDB).");
           } else {
-            setExercises(MANUAL_DATABASE);
+            // Si no, cargamos el banco de ejercicios de demostración
+            console.log("Base de datos local vacía. Cargando banco de ejercicios de demostración...");
+            const demoExercises = await loadDemoExercises();
+            setExercises(demoExercises);
+            // Guardamos los ejercicios de demo en la BD local para uso futuro
+            if (demoExercises.length > 0) {
+              const dbWrite = await openDB();
+              const txWrite = dbWrite.transaction(STORE_NAME, 'readwrite');
+              const storeWrite = txWrite.objectStore(STORE_NAME);
+              demoExercises.forEach(ex => storeWrite.put(ex));
+              console.log("Banco de demostración guardado en IndexedDB para la próxima vez.");
+            }
           }
           setIsLoadingDB(false);
         };
+
+        request.onerror = async () => {
+            console.error("Error al leer IndexedDB. Cargando banco de demostración como alternativa.");
+            const demoExercises = await loadDemoExercises();
+            setExercises(demoExercises);
+            setIsLoadingDB(false);
+        }
+
       } catch (error) {
-        console.error("Error loading DB:", error);
-        setExercises(MANUAL_DATABASE);
+        console.error("Error crítico al abrir IndexedDB. Cargando banco de demostración.", error);
+        const demoExercises = await loadDemoExercises();
+        setExercises(demoExercises);
         setIsLoadingDB(false);
       }
     };
     loadData();
   }, []);
 
-  // Helper to save to DB
+  // --- Helpers de Base de Datos (sin cambios) ---
   const saveToDB = async (exercise: Exercise) => {
     try {
       const db = await openDB();
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
       store.put(exercise);
-    } catch (e) {
-      console.error("Error saving to DB", e);
-    }
+    } catch (e) { console.error("Error al guardar en IndexedDB", e); }
   };
 
-  // Helper to delete from DB
   const deleteFromDB = async (id: string) => {
     try {
       const db = await openDB();
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
       store.delete(id);
-    } catch (e) {
-      console.error("Error deleting from DB", e);
-    }
+    } catch (e) { console.error("Error al eliminar de IndexedDB", e); }
   };
 
-  // Helper to clear DB
   const clearDB = async () => {
     try {
         const db = await openDB();
         const tx = db.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
         store.clear();
-    } catch (e) { console.error("Error clearing DB", e); }
+    } catch (e) { console.error("Error al limpiar IndexedDB", e); }
   };
 
-
+  // --- Acciones del Contexto ---
   const addExercise = (exercise: Exercise) => {
-    setExercises(prev => [exercise, ...prev]);
-    saveToDB(exercise);
+    setExercises(prev => {
+        if (prev.some(ex => ex.id === exercise.id)) return prev; // Evita duplicados
+        saveToDB(exercise);
+        return [exercise, ...prev];
+    });
   };
 
   const deleteExercise = (id: string) => {
@@ -139,7 +160,6 @@ export const ExerciseProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   const getSelectedExercises = () => {
-    // Map selectedIds to exercises to PRESERVE ORDER
     return selectedIds
       .map(id => exercises.find(ex => ex.id === id))
       .filter((ex): ex is Exercise => ex !== undefined);
@@ -149,15 +169,23 @@ export const ExerciseProvider: React.FC<{ children: ReactNode }> = ({ children }
     setSettings(prev => ({ ...prev, ...newSettings }));
   };
 
-  const deleteAllExercises = () => {
+  const deleteAllExercises = async () => {
     setExercises([]);
     setSelectedIds([]);
-    clearDB();
+    await clearDB();
   };
 
-  const restoreDemoData = () => {
-    setExercises(MANUAL_DATABASE);
-    MANUAL_DATABASE.forEach(ex => saveToDB(ex));
+  // --- MODIFICADO: Restaurar Datos de Demo ---
+  const restoreDemoData = async () => {
+    console.log("Restaurando banco de ejercicios de demostración...");
+    setIsLoadingDB(true);
+    await clearDB(); // Limpia la base de datos actual
+    const demoExercises = await loadDemoExercises();
+    setExercises(demoExercises);
+    // Vuelve a guardar los ejercicios de demo en la BD
+    demoExercises.forEach(ex => saveToDB(ex));
+    setIsLoadingDB(false);
+    console.log("Restauración completada.");
   };
 
   return (
@@ -184,7 +212,7 @@ export const ExerciseProvider: React.FC<{ children: ReactNode }> = ({ children }
 export const useExercises = () => {
   const context = useContext(ExerciseContext);
   if (!context) {
-    throw new Error('useExercises must be used within an ExerciseProvider');
+    throw new Error('useExercises debe ser usado dentro de un ExerciseProvider');
   }
   return context;
 };
